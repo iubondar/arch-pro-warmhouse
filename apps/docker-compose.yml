@@ -1,30 +1,16 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: smarthome-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: smarthome
+  temperature-api:
+    build:
+      context: ./temperature-api
+      dockerfile: Dockerfile
+    container_name: temperature-api-app
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - "8081:8081"
+    restart: unless-stopped
+    networks:
+      - smarthome-network
 
-  # TODO: добавить конфигурацию для приложения
-  # temperature-api:
-  #   build: ./order-service
-  #     container_name: order-service
-  #     ports:
-  #       - "5002:5002"
-  #     environment:
-  #       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/orders
-  #     depends_on:
-  #       - db
-  #     networks:
-  #       - quickdelivery-network
-
-  app:
+  smart_home:
     build:
       context: ./smart_home
       dockerfile: Dockerfile
@@ -43,8 +29,26 @@ services:
     networks:
       - smarthome-network
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: smarthome-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smarthome
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./apps/smart_home/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+        
 volumes:
-  postgres_data:
+  postgres-data:
 
 networks:
   smarthome-network:
