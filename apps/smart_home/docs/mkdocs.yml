@@ -1,0 +1,8 @@
+site_name: SmartHome Documentation
+theme: readthedocs
+markdown_extensions:
+  - md_in_html
+plugins:
+  - plantuml:
+      puml_url: "https://www.plantuml.com/plantuml"
+      output_format: "svg"
