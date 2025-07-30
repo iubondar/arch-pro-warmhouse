@@ -1,13 +1,28 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: smarthome-postgres
-  ## тут нужно добавить настройки
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smarthome
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 
-  temperature-api:
-  ## тут нужно добавить приложение
+  # TODO: добавить конфигурацию для приложения
+  # temperature-api:
+  #   build: ./order-service
+  #     container_name: order-service
+  #     ports:
+  #       - "5002:5002"
+  #     environment:
+  #       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/orders
+  #     depends_on:
+  #       - db
+  #     networks:
+  #       - quickdelivery-network
 
   app:
     build:
