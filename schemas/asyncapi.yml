@@ -1,0 +1,195 @@
+asyncapi: 3.0.0
+info:
+  title: Smart Home Event Bus
+  version: 1.0.0
+  description: >
+    Спецификация событийной шины Kafka для взаимодействия между Core-сервисами и
+    адаптерами устройств.
+defaultContentType: application/json
+servers:
+  kafkaBroker:
+    host: 'kafka.smarthome.local:9092'
+    protocol: kafka
+    description: Основной Kafka брокер для событий устройств.
+channels:
+  device.commands:
+    address: device.commands
+    messages:
+      publishDeviceCommand.message:
+        name: DeviceCommand
+        title: Команда устройству
+        summary: Событие постановки команды в очередь для адаптера.
+        contentType: application/json
+        payload:
+          type: object
+          properties:
+            command_id:
+              type: string
+            device_id:
+              type: string
+            command_type:
+              type: string
+              example: switch_on
+            payload:
+              type: object
+              additionalProperties: true
+        examples:
+          - name: Switch on plug
+            summary: Включение умной розетки
+            payload:
+              command_id: 93f2563a-f2b2-41b6-9d19-b1f8ea21b3c0
+              device_id: 1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9
+              command_type: switch_on
+              payload:
+                duration: 300
+    description: 'Команды, отправляемые от Core к адаптерам устройств.'
+  device.acks:
+    address: device.acks
+    messages:
+      subscribeAck.message:
+        name: DeviceAck
+        title: Подтверждение выполнения команды
+        payload:
+          type: object
+          properties:
+            command_id:
+              type: string
+            device_id:
+              type: string
+            status:
+              type: string
+              enum:
+                - ACKED
+                - ERROR
+            response:
+              type: string
+        examples:
+          - name: Ack success
+            payload:
+              command_id: 93f2563a-f2b2-41b6-9d19-b1f8ea21b3c0
+              device_id: 1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9
+              status: ACKED
+              response: Command executed successfully
+          - name: Ack error
+            payload:
+              command_id: 111e2563a-f2b2-41b6-9d19-b1f8ea21b3c0
+              device_id: aaaabbbb-6722-45c5-b127-3945015ff19b
+              status: ERROR
+              response: Device offline
+    description: Подтверждения (ACK/ERROR) от адаптеров после выполнения команд.
+  device.telemetry:
+    address: device.telemetry
+    messages:
+      subscribeTelemetry.message:
+        name: TelemetryEvent
+        title: Показания телеметрии устройства
+        payload:
+          type: object
+          properties:
+            device_id:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            metrics:
+              type: object
+              additionalProperties:
+                type: number
+        examples:
+          - name: Power meter
+            payload:
+              device_id: 1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9
+              timestamp: '2025-07-31T10:15:00Z'
+              metrics:
+                power: 23.5
+                voltage: 220.1
+    description: 'Телеметрия, публикуемая адаптерами в Core.'
+  device.registered:
+    address: device.registered
+    messages:
+      subscribeDeviceRegistered.message:
+        name: DeviceRegistered
+        title: Новое устройство зарегистрировано
+        payload:
+          type: object
+          properties:
+            device_id:
+              type: string
+            user_id:
+              type: string
+            device_type:
+              type: string
+            adapter_id:
+              type: string
+            status:
+              type: string
+        examples:
+          - name: Registered plug
+            payload:
+              device_id: 1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9
+              user_id: b2e3f3da-5123-4f6f-99a1-4f5de12345cd
+              device_type: Smart Plug
+              adapter_id: zigbee-adapter-1
+              status: PAIRING
+    description: >-
+      Событие, публикуемое Device Management Service при регистрации нового
+      устройства.
+  device.status_changed:
+    address: device.status_changed
+    messages:
+      subscribeStatusChanged.message:
+        name: DeviceStatusChanged
+        title: Изменение статуса устройства
+        payload:
+          type: object
+          properties:
+            device_id:
+              type: string
+            old_status:
+              type: string
+            new_status:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+        examples:
+          - name: Device went offline
+            payload:
+              device_id: efac77f3-6722-45c5-b127-3945015ff19b
+              old_status: ONLINE
+              new_status: OFFLINE
+              timestamp: '2025-07-31T10:20:00Z'
+    description: Событие изменения статуса устройства (online/offline/error).
+operations:
+  publishDeviceCommand:
+    action: receive
+    channel:
+      $ref: '#/channels/device.commands'
+    messages:
+      - $ref: '#/channels/device.commands/messages/publishDeviceCommand.message'
+  subscribeAck:
+    action: send
+    channel:
+      $ref: '#/channels/device.acks'
+    messages:
+      - $ref: '#/channels/device.acks/messages/subscribeAck.message'
+  subscribeTelemetry:
+    action: send
+    channel:
+      $ref: '#/channels/device.telemetry'
+    messages:
+      - $ref: '#/channels/device.telemetry/messages/subscribeTelemetry.message'
+  subscribeDeviceRegistered:
+    action: send
+    channel:
+      $ref: '#/channels/device.registered'
+    messages:
+      - $ref: >-
+          #/channels/device.registered/messages/subscribeDeviceRegistered.message
+  subscribeStatusChanged:
+    action: send
+    channel:
+      $ref: '#/channels/device.status_changed'
+    messages:
+      - $ref: >-
+          #/channels/device.status_changed/messages/subscribeStatusChanged.message

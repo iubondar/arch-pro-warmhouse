@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: Smart Home Core API
+  version: 1.3.0
+servers:
+  - url: https://api.smarthome.local/v1
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Users
+  - name: Devices
+  - name: Commands
+  - name: Telemetry
+
+paths:
+  /users/register:
+    post:
+      summary: Регистрация нового пользователя
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Пользователь зарегистрирован
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    user_id: "b2e3f3da-5123-4f6f-99a1-4f5de12345cd"
+                    email: "user@example.com"
+                    name: "Иван Иванов"
+
+  /users/login:
+    post:
+      summary: Аутентификация пользователя
+      security: []
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Успешная аутентификация
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+  /devices:
+    get:
+      summary: Получить список устройств пользователя
+      tags: [Devices]
+      responses:
+        "200":
+          description: Список устройств
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    - device_id: "1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9"
+                      name: "Умная розетка"
+                      type: "Smart Plug"
+                      status: "ONLINE"
+    post:
+      summary: Зарегистрировать новое устройство
+      tags: [Devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_type_id:
+                  type: string
+                adapter_id:
+                  type: string
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Устройство зарегистрировано
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    device_id: "1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9"
+                    name: "Умная розетка"
+                    type: "Smart Plug"
+                    status: "PAIRING"
+
+  /devices/{deviceId}:
+    parameters:
+      - name: deviceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Идентификатор устройства
+    get:
+      summary: Получить информацию об устройстве
+      tags: [Devices]
+      responses:
+        "200":
+          description: Информация об устройстве
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    device_id: "1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9"
+                    name: "Умная розетка"
+                    type: "Smart Plug"
+                    status: "ONLINE"
+    delete:
+      summary: Удалить устройство
+      tags: [Devices]
+      responses:
+        "204":
+          description: Устройство удалено
+
+  /devices/{deviceId}/commands:
+    parameters:
+      - name: deviceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Идентификатор устройства
+    post:
+      summary: Отправить команду на устройство
+      tags: [Commands]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command_type:
+                  type: string
+                  example: switch_on
+                payload:
+                  type: object
+                  example:
+                    duration: 300
+      responses:
+        "202":
+          description: Команда поставлена в очередь
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    command_id: "93f2563a-f2b2-41b6-9d19-b1f8ea21b3c0"
+                    status: "SENT"
+        "404":
+          description: Устройство не найдено
+
+  /telemetry/{deviceId}/latest:
+    parameters:
+      - name: deviceId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Получить последние показатели телеметрии
+      tags: [Telemetry]
+      responses:
+        "200":
+          description: Последние данные
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    device_id: "1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9"
+                    timestamp: "2025-07-31T10:15:00Z"
+                    metrics:
+                      power: 23.5
+                      voltage: 220.1
+
+  /telemetry/{deviceId}/history:
+    parameters:
+      - name: deviceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+    get:
+      summary: Получить историю телеметрии
+      tags: [Telemetry]
+      responses:
+        "200":
+          description: История данных
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    device_id: "1f5aa4d0-5ef7-47f1-8a1c-f2fadc12a7d9"
+                    data:
+                      - timestamp: "2025-07-31T10:00:00Z"
+                        metrics:
+                          power: 20.1
+                      - timestamp: "2025-07-31T10:05:00Z"
+                        metrics:
+                          power: 21.3
