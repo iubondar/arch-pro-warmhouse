@@ -1,0 +1,92 @@
+@startuml Microservices C4 Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+
+title Container diagram for Smart home System to-be state
+
+Person(user, User, "Пользователь системы Умный дом")
+
+System_Boundary(c1, "Smart Home Platform") {
+    ' Интерфейс
+    Container(spa, "Single-Page App", "JavaScript, Vue", "Предоставляет функциональность личного кабинета для управления устройствами через браузер")
+    Container(mobile_app, "Mobile App", "Swift / Kotlin, KMM", "Предоставляет функциональность личного кабинета для управления устройствами через мобильные приложения")
+    ' API gateway
+    Container(api_gateway, "API gateway", "Go, Kong, Docker Container", "Роутинг запросов, проброс авторизационных заголовков")
+    ' Backend-for-frontend
+    Container(spa_BFF, "BFF for SPA", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+    Container(mobile_BFF, "BFF for mobile", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+    ' Core-сервисы
+    Container(user_service, "User service", "Go, Docker Container", "Сервис управления пользователями")
+    ContainerDb(user_db, "Users DB", "PostgreSQL, Docker Container", "Хранение пользователей, аутентификация и авторизация")
+    Container(telemetry_service, "Telemetry service", "Go, Docker Container", "Сервис управления телеметрией")
+    ContainerDb(telemetry_db, "Telemetry DB", "Clickhouse", "Хранит показатели телеметрии с устройств")
+    Container(devices_service, "Device management service", "Go, Docker Container", "Сервис управления устройствами")
+    ContainerDb(devices_db, "Devices DB", "PostgreSQL", "Хранит показатели телеметрии с устройств")
+}
+
+' Шина данных
+ContainerQueue(databus, "Databus", "Kafka", "Шина данных")
+
+' Слой адаптеров
+System_Boundary(c2, "Device adapters") {
+    Container(adapter_zb, "Zigbee Adapter", "Go, Docker Container", "Адаптер для Zegbee устройств")
+    Container(adapter_ble, "BLE Adapter", "Go, Docker Container", "Адаптер для BLE устройств")
+    Container(adapter_rest, "REST Adapter", "Go, Docker Container", "Адаптер для REST устройств")
+    Container(adapter_mqtt, "WiFi MQTT Adapter", "Go, Docker Container", "Адаптер для WiFi MQTT устройств")
+}
+
+' Устройства
+System_Ext(devices_zb, "Zegbee devices", "Device")
+System_Ext(devices_ble, "BLE devices", "Device")
+System_Ext(devices_rest, "REST devices", "Device")
+System_Ext(devices_mqtt, "WiFi+MQTT devices", "Device")
+
+ContainerQueue_Ext(mqtt, "Devices bus", "MQTT", "Шина для устройств")
+
+' --- Связи ---
+' Пользователь
+Rel(user, spa, "Uses", "HTTPS via browser")
+Rel(user, mobile_app, "Uses")
+
+' Frontend
+Rel(spa, api_gateway, "Uses", "HTTPS / REST")
+Rel(mobile_app, api_gateway, "Uses", "HTTPS / REST")
+
+' BFF
+Rel_Back(api_gateway, spa_BFF, "Delivers")
+Rel_Back(api_gateway, mobile_BFF, "Delivers")
+
+Rel(spa_BFF, user_service, "Регистрация, аутентификация, авторизация", "HTTPS / REST")
+Rel(spa_BFF, telemetry_service, "Показатели телеметрии", "HTTPS / REST")
+Rel(spa_BFF, devices_service, "Управление устройствами", "HTTPS / REST")
+Rel(mobile_BFF, user_service, "Регистрация, аутентификация, авторизация", "HTTPS / REST")
+Rel(mobile_BFF, telemetry_service, "Показатели телеметрии", "HTTPS / REST")
+Rel(mobile_BFF, devices_service, "Управление устройствами", "HTTPS / REST")
+
+' Базы данных
+Rel(user_service, user_db, "Reads from and writes to", "sync")
+Rel(telemetry_service, telemetry_db, "Reads from and writes to", "sync")
+Rel(devices_service, devices_db, "Reads from and writes to", "sync")
+
+' Шина
+Rel(telemetry_service, databus, "Читает показатели", "async")
+Rel(devices_service, databus, "Публикует команды, читает ack", "async")
+
+Rel(adapter_zb, databus, "Публикует показатели, ack", "async")
+Rel_Back(adapter_zb, databus, "Читает команды", "async")
+Rel(adapter_ble, databus, "Публикует показатели, ack", "async")
+Rel_Back(adapter_ble, databus, "Читает команды", "async")
+Rel(adapter_rest, databus, "Публикует показатели, ack", "async")
+Rel_Back(adapter_rest, databus, "Читает команды", "async")
+Rel(adapter_mqtt, databus, "Публикует показатели, ack", "async")
+Rel_Back(adapter_mqtt, databus, "Читает команды", "async")
+
+' Устройства
+Rel(devices_zb, adapter_zb, "Zegbee protocol")
+Rel(devices_ble, adapter_ble, "BLE protocol")
+Rel(devices_rest, adapter_rest, "HTTPS / REST")
+Rel(devices_mqtt, mqtt, "async")
+Rel_Back(mqtt, adapter_mqtt, "Bridge to", "async")
+
+@enduml

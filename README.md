@@ -54,11 +54,11 @@
 
 **Диаграмма контейнеров (Containers)**
 
-Добавьте диаграмму.
+[Диаграмма контейнеров](./schemas/microservices_C4_container/Microservices%20C4%20Container.svg)
 
 **Диаграмма компонентов (Components)**
 
-Добавьте диаграмму для каждого из выделенных микросервисов.
+[Users service - диаграмма компонентов](./schemas/C4_component_user_service/Users%20service%20component.svg)
 
 **Диаграмма кода (Code)**
 
