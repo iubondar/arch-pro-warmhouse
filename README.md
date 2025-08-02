@@ -60,6 +60,7 @@
 
 [Users service - диаграмма компонентов](./schemas/C4_component_user_service/Users%20service%20component.svg)
 [Devices service - диаграмма компонентов](./schemas/C4_component_devices_service/Devices%20service%20component.svg)
+[Telemetry service - диаграмма компонентов](./schemas/C4_component_telemetry_service/Telemetry%20service%20component.svg)
 
 **Диаграмма кода (Code)**
 
