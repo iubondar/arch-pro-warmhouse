@@ -1,0 +1,58 @@
+@startuml Microcervices C4 Sequence Register Device
+
+title Последовательность действий при регистрации устройства (Zigbee и MQTT) и получении состояния
+
+actor Пользователь
+participant "SPA / Mobile App" as app
+participant "API Gateway" as api
+participant "BFF" as bff
+participant "Devices Service" as dev_svc
+database "Devices DB" as dev_db
+queue "Databus (Kafka)" as bus
+participant "Zigbee Adapter" as adapter_zb
+entity "Устройство Zigbee" as device_zb
+participant "MQTT Adapter" as adapter_mqtt
+entity "Устройство MQTT" as device_mqtt
+
+== Сценарий 1: Zigbee устройство ==
+Пользователь -> app : "Добавить Zigbee устройство"
+app -> api : POST /devices (тип=Zigbee)
+api -> bff : Запрос на регистрацию
+bff -> dev_svc : Создать запись устройства
+dev_svc -> dev_db : INSERT новое устройство
+dev_svc -> bus : Событие "device_registered"
+bus -> adapter_zb : Адаптер получает событие
+adapter_zb -> device_zb : Паринг устройства
+adapter_zb --> bus : "device_online"
+bus -> dev_svc : Обновление статуса ONLINE
+dev_svc -> dev_db : UPDATE статус устройства
+
+== Сценарий 2: MQTT устройство ==
+Пользователь -> app : "Добавить MQTT устройство"
+app -> api : POST /devices (тип=MQTT)
+api -> bff : Запрос на регистрацию
+bff -> dev_svc : Создать запись устройства
+dev_svc -> dev_db : INSERT новое устройство
+dev_svc -> bus : Событие "device_registered"
+bus -> adapter_mqtt : Генерация MQTT параметров (endpoint, логин/пароль, топики)
+adapter_mqtt -> bff : Возвращает параметры подключения
+bff -> api : Ответ с MQTT-конфигом
+api -> app : Параметры подключения MQTT
+Пользователь -> device_mqtt : Настройка подключения к брокеру вручную
+device_mqtt -> adapter_mqtt : MQTT connect + публикация telemetry
+adapter_mqtt --> bus : "device_online"
+bus -> dev_svc : Обновление статуса ONLINE
+dev_svc -> dev_db : UPDATE статус устройства
+
+== Получение текущего состояния ==
+Пользователь -> app : GET /devices
+app -> api
+api -> bff
+bff -> dev_svc : SELECT устройства + статус
+dev_svc -> dev_db : Чтение данных
+dev_db --> dev_svc : Результат
+dev_svc --> bff : Ответ JSON
+bff --> api
+api --> app : Список устройств и статусы
+
+@enduml

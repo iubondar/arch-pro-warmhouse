@@ -64,7 +64,8 @@
 
 **Диаграмма кода (Code)**
 
-Добавьте одну диаграмму или несколько.
+[Добавление устройства - диаграмма последовательности](./schemas/C4_sequence_register_device/Microcervices%20C4%20Sequence%20Register%20Device.svg)
+[Отправка команды - диаграмма последовательности](./schemas/C4_sequence_send_command/Microcervices%20C4%20Sequence%20Send%20Command.svg)
 
 # Задание 3. Разработка ER-диаграммы
 
