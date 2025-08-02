@@ -22,7 +22,7 @@ System_Boundary(c1, "Smart Home Platform") {
     Container(telemetry_service, "Telemetry service", "Go, Docker Container", "Сервис управления телеметрией")
     ContainerDb(telemetry_db, "Telemetry DB", "Clickhouse", "Хранит показатели телеметрии с устройств")
     Container(devices_service, "Device management service", "Go, Docker Container", "Сервис управления устройствами")
-    ContainerDb(devices_db, "Devices DB", "PostgreSQL", "Хранит показатели телеметрии с устройств")
+    ContainerDb(devices_db, "Devices DB", "PostgreSQL", "Хранит данные об устройствах и их текущем состоянии")
 }
 
 ' Шина данных
@@ -71,7 +71,7 @@ Rel(devices_service, devices_db, "Reads from and writes to", "sync")
 
 ' Шина
 Rel(telemetry_service, databus, "Читает показатели", "async")
-Rel(devices_service, databus, "Публикует команды, читает ack", "async")
+Rel(devices_service, databus, "Публикует команды, читает ack и состояние устройств", "async")
 
 Rel(adapter_zb, databus, "Публикует показатели, ack", "async")
 Rel_Back(adapter_zb, databus, "Читает команды", "async")

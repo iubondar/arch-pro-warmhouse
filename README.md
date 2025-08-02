@@ -54,11 +54,12 @@
 
 **Диаграмма контейнеров (Containers)**
 
-[Диаграмма контейнеров](./schemas/microservices_C4_container/Microservices%20C4%20Container.svg)
+[Диаграмма контейнеров](./schemas/C4_container/Microservices%20C4%20Container.svg)
 
 **Диаграмма компонентов (Components)**
 
 [Users service - диаграмма компонентов](./schemas/C4_component_user_service/Users%20service%20component.svg)
+[Devices service - диаграмма компонентов](./schemas/C4_component_devices_service/Devices%20service%20component.svg)
 
 **Диаграмма кода (Code)**
 
