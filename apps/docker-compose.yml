@@ -1,4 +1,15 @@
 services:
+  telemetry:
+    build:
+      context: ./telemetry
+      dockerfile: Dockerfile
+    container_name: telemetry-app
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
   temperature-api:
     build:
       context: ./temperature-api
