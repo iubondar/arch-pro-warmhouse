@@ -1,14 +1,11 @@
 package handlers
 
 import (
-	"context"
+	"bytes"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
-	"strconv"
 
-	"smarthome/db"
-	"smarthome/models"
 	"smarthome/services"
 
 	"github.com/gin-gonic/gin"
@@ -16,17 +13,19 @@ import (
 
 // SensorHandler handles sensor-related requests
 type SensorHandler struct {
-	DB                 *db.DB
-	TemperatureService *services.TemperatureService
-	TelemetryService   *services.TelemetryService
+	DeviceManagementURL string
+	TemperatureService  *services.TemperatureService
+	TelemetryService    *services.TelemetryService
+	HTTPClient          *http.Client
 }
 
 // NewSensorHandler creates a new SensorHandler
-func NewSensorHandler(db *db.DB, temperatureService *services.TemperatureService, telemetryService *services.TelemetryService) *SensorHandler {
+func NewSensorHandler(deviceManagementURL string, temperatureService *services.TemperatureService, telemetryService *services.TelemetryService) *SensorHandler {
 	return &SensorHandler{
-		DB:                 db,
-		TemperatureService: temperatureService,
-		TelemetryService:   telemetryService,
+		DeviceManagementURL: deviceManagementURL,
+		TemperatureService:  temperatureService,
+		TelemetryService:    telemetryService,
+		HTTPClient:          &http.Client{},
 	}
 }
 
@@ -51,62 +50,55 @@ func (h *SensorHandler) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// GetSensors handles GET /api/v1/sensors
-func (h *SensorHandler) GetSensors(c *gin.Context) {
-	sensors, err := h.DB.GetSensors(context.Background())
+// proxyRequest forwards the request to device-management service
+func (h *SensorHandler) proxyRequest(c *gin.Context, method, path string, body io.Reader) {
+	url := fmt.Sprintf("%s%s", h.DeviceManagementURL, path)
+
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
 		return
 	}
 
-	// Update temperature sensors with real-time data from the external API
-	for i, sensor := range sensors {
-		if sensor.Type == models.Temperature {
-			tempData, err := h.TemperatureService.GetTemperatureByID(fmt.Sprintf("%d", sensor.ID))
-			if err == nil {
-				// Update sensor with real-time data
-				sensors[i].Value = tempData.Value
-				sensors[i].Status = tempData.Status
-				sensors[i].LastUpdated = tempData.Timestamp
-				log.Printf("Updated temperature data for sensor %d from external API", sensor.ID)
-			} else {
-				log.Printf("Failed to fetch temperature data for sensor %d: %v", sensor.ID, err)
-			}
+	// Copy headers from original request
+	for key, values := range c.Request.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
 		}
 	}
 
-	c.JSON(http.StatusOK, sensors)
+	// Set content type for requests with body
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := h.HTTPClient.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to proxy request: %v", err)})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response body"})
+		return
+	}
+
+	// Forward response status and body
+	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), respBody)
+}
+
+// GetSensors handles GET /api/v1/sensors
+func (h *SensorHandler) GetSensors(c *gin.Context) {
+	h.proxyRequest(c, "GET", "/api/v1/sensors", nil)
 }
 
 // GetSensorByID handles GET /api/v1/sensors/:id
 func (h *SensorHandler) GetSensorByID(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sensor ID"})
-		return
-	}
-
-	sensor, err := h.DB.GetSensorByID(context.Background(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Sensor not found"})
-		return
-	}
-
-	// If this is a temperature sensor, fetch real-time data from the temperature API
-	if sensor.Type == models.Temperature {
-		tempData, err := h.TemperatureService.GetTemperatureByID(fmt.Sprintf("%d", sensor.ID))
-		if err == nil {
-			// Update sensor with real-time data
-			sensor.Value = tempData.Value
-			sensor.Status = tempData.Status
-			sensor.LastUpdated = tempData.Timestamp
-			log.Printf("Updated temperature data for sensor %d from external API", sensor.ID)
-		} else {
-			log.Printf("Failed to fetch temperature data for sensor %d: %v", sensor.ID, err)
-		}
-	}
-
-	c.JSON(http.StatusOK, sensor)
+	id := c.Param("id")
+	h.proxyRequest(c, "GET", fmt.Sprintf("/api/v1/sensors/%s", id), nil)
 }
 
 // GetTemperatureByLocation handles GET /api/v1/sensors/temperature/:location
@@ -139,86 +131,48 @@ func (h *SensorHandler) GetTemperatureByLocation(c *gin.Context) {
 
 // CreateSensor handles POST /api/v1/sensors
 func (h *SensorHandler) CreateSensor(c *gin.Context) {
-	var sensorCreate models.SensorCreate
-	if err := c.ShouldBindJSON(&sensorCreate); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	sensor, err := h.DB.CreateSensor(context.Background(), sensorCreate)
+	// Read the request body
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, sensor)
+	h.proxyRequest(c, "POST", "/api/v1/sensors", bytes.NewReader(body))
 }
 
 // UpdateSensor handles PUT /api/v1/sensors/:id
 func (h *SensorHandler) UpdateSensor(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	id := c.Param("id")
+
+	// Read the request body
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sensor ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
 		return
 	}
 
-	var sensorUpdate models.SensorUpdate
-	if err := c.ShouldBindJSON(&sensorUpdate); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	sensor, err := h.DB.UpdateSensor(context.Background(), id, sensorUpdate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, sensor)
+	h.proxyRequest(c, "PUT", fmt.Sprintf("/api/v1/sensors/%s", id), bytes.NewReader(body))
 }
 
 // DeleteSensor handles DELETE /api/v1/sensors/:id
 func (h *SensorHandler) DeleteSensor(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sensor ID"})
-		return
-	}
-
-	err = h.DB.DeleteSensor(context.Background(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Sensor deleted successfully"})
+	id := c.Param("id")
+	h.proxyRequest(c, "DELETE", fmt.Sprintf("/api/v1/sensors/%s", id), nil)
 }
 
 // UpdateSensorValue handles PATCH /api/v1/sensors/:id/value
 func (h *SensorHandler) UpdateSensorValue(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	id := c.Param("id")
+
+	// Read the request body
+	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sensor ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
 		return
 	}
 
-	var request struct {
-		Value  float64 `json:"value" binding:"required"`
-		Status string  `json:"status" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = h.DB.UpdateSensorValue(context.Background(), id, request.Value, request.Status)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Sensor value updated successfully"})
+	h.proxyRequest(c, "PATCH", fmt.Sprintf("/api/v1/sensors/%s/value", id), bytes.NewReader(body))
 }
 
 // GetLatestTelemetry handles GET /api/v1/telemetry/:deviceId/latest
