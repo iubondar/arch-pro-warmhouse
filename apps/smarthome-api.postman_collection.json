@@ -214,8 +214,9 @@
             },
             "response": []
         },
+
         {
-            "name": "Get Telemetry History",
+            "name": "Get Telemetry History with Date Range",
             "request": {
                 "method": "GET",
                 "header": [],
