@@ -18,13 +18,15 @@ import (
 type SensorHandler struct {
 	DB                 *db.DB
 	TemperatureService *services.TemperatureService
+	TelemetryService   *services.TelemetryService
 }
 
 // NewSensorHandler creates a new SensorHandler
-func NewSensorHandler(db *db.DB, temperatureService *services.TemperatureService) *SensorHandler {
+func NewSensorHandler(db *db.DB, temperatureService *services.TemperatureService, telemetryService *services.TelemetryService) *SensorHandler {
 	return &SensorHandler{
 		DB:                 db,
 		TemperatureService: temperatureService,
+		TelemetryService:   telemetryService,
 	}
 }
 
@@ -39,6 +41,13 @@ func (h *SensorHandler) RegisterRoutes(router *gin.RouterGroup) {
 		sensors.DELETE("/:id", h.DeleteSensor)
 		sensors.PATCH("/:id/value", h.UpdateSensorValue)
 		sensors.GET("/temperature/:location", h.GetTemperatureByLocation)
+	}
+
+	// Telemetry routes
+	telemetry := router.Group("/telemetry")
+	{
+		telemetry.GET("/:deviceId/latest", h.GetLatestTelemetry)
+		telemetry.GET("/:deviceId/history", h.GetTelemetryHistory)
 	}
 }
 
@@ -210,4 +219,58 @@ func (h *SensorHandler) UpdateSensorValue(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Sensor value updated successfully"})
+}
+
+// GetLatestTelemetry handles GET /api/v1/telemetry/:deviceId/latest
+func (h *SensorHandler) GetLatestTelemetry(c *gin.Context) {
+	deviceID := c.Param("deviceId")
+	if deviceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Device ID is required"})
+		return
+	}
+
+	// Fetch telemetry data from the external API
+	telemetryData, err := h.TelemetryService.GetLatestTelemetry(deviceID)
+	if err != nil {
+		if err.Error() == "device with id not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "device with id not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Failed to fetch telemetry data: %v", err),
+		})
+		return
+	}
+
+	// Return the telemetry data
+	c.JSON(http.StatusOK, telemetryData)
+}
+
+// GetTelemetryHistory handles GET /api/v1/telemetry/:deviceId/history
+func (h *SensorHandler) GetTelemetryHistory(c *gin.Context) {
+	deviceID := c.Param("deviceId")
+	if deviceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Device ID is required"})
+		return
+	}
+
+	// Get query parameters for date range
+	from := c.Query("from")
+	to := c.Query("to")
+
+	// Fetch telemetry history from the external API
+	history, err := h.TelemetryService.GetTelemetryHistory(deviceID, from, to)
+	if err != nil {
+		if err.Error() == "device with id not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "device with id not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Failed to fetch telemetry history: %v", err),
+		})
+		return
+	}
+
+	// Return the telemetry history
+	c.JSON(http.StatusOK, history)
 }
