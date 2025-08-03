@@ -1,0 +1,25 @@
+@startuml Telemetry service component
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Диаграмма компонентов для системы Умный дом - Telemetry service
+
+Container(spa_BFF, "BFF for SPA", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+Container(mobile_BFF, "BFF for mobile", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+ContainerDb(telemetry_db, "Telemetry DB", "Clickhouse", "Хранит показатели телеметрии с устройств")
+
+Container_Boundary(tm, "Telemetry service", "Go, Docker Container", "Сервис управления телеметрией") {
+    Component(statistics_handler, "Statistics handler", "Go handler", "Получает запросы на статистику телеметрии устройств")
+    Component(statistics, "Statistics component", "Go", "Вычисляет статистику телеметрии устройств")
+    Component(storage, "Storage component", "Go", "Управляет сохранением и чтением данных из БД")
+
+    Rel(statistics_handler, statistics, "Uses")
+    Rel(statistics, storage, "Uses")
+    Rel(storage, telemetry_db, "Reads from and writes to", "sync")
+}
+
+Rel(spa_BFF, statistics_handler, "Получение статистики", "HTTPS / REST")
+Rel(mobile_BFF, statistics_handler, "Получение статистики", "HTTPS / REST")
+
+@enduml

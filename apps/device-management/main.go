@@ -9,26 +9,28 @@ import (
 	"syscall"
 	"time"
 
-	"smarthome/handlers"
-	"smarthome/services"
+	"device-management/db"
+	"device-management/handlers"
+	"device-management/services"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// Set up database connection
+	dbURL := getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/smarthome")
+	database, err := db.New(dbURL)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+	defer database.Close()
+
+	log.Println("Connected to database successfully")
+
 	// Initialize temperature service
 	temperatureAPIURL := getEnv("TEMPERATURE_API_URL", "http://temperature-api:8081")
 	temperatureService := services.NewTemperatureService(temperatureAPIURL)
 	log.Printf("Temperature service initialized with API URL: %s\n", temperatureAPIURL)
-
-	// Initialize telemetry service
-	telemetryAPIURL := getEnv("TELEMETRY_API_URL", "http://telemetry:8082")
-	telemetryService := services.NewTelemetryService(telemetryAPIURL)
-	log.Printf("Telemetry service initialized with API URL: %s\n", telemetryAPIURL)
-
-	// Initialize device management service URL
-	deviceManagementURL := getEnv("DEVICE_MANAGEMENT_API_URL", "http://device-management:8083")
-	log.Printf("Device management service URL: %s\n", deviceManagementURL)
 
 	// Initialize router
 	router := gin.Default()
@@ -44,12 +46,12 @@ func main() {
 	apiRoutes := router.Group("/api/v1")
 
 	// Register sensor routes
-	sensorHandler := handlers.NewSensorHandler(deviceManagementURL, temperatureService, telemetryService)
+	sensorHandler := handlers.NewSensorHandler(database, temperatureService)
 	sensorHandler.RegisterRoutes(apiRoutes)
 
 	// Start server
 	srv := &http.Server{
-		Addr:    getEnv("PORT", ":8080"),
+		Addr:    getEnv("PORT", ":8083"),
 		Handler: router,
 	}
 

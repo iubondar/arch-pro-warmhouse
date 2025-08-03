@@ -1,0 +1,99 @@
+@startuml ER-diagram
+
+title ER-диаграмма - Умный дом (справочники для протоколов и статусов)
+
+entity "Пользователь (users)" as users {
+  * user_id : UUID <<PK>>
+  --
+  email : varchar
+  password_hash : varchar
+  name : varchar
+  created_at : timestamp
+}
+
+entity "Адаптер (adapters)" as adapters {
+  * adapter_id : UUID <<PK>>
+  --
+  name : varchar
+  protocol_id : UUID <<FK>>
+  description : text
+  created_at : timestamp
+}
+
+entity "Тип устройства (device_types)" as device_types {
+  * device_type_id : UUID <<PK>>
+  --
+  name : varchar
+  protocol_id : UUID <<FK>>
+  supported_commands : jsonb
+  supported_metrics : jsonb
+  manufacturer : varchar
+  model : varchar
+  created_at : timestamp
+}
+
+entity "Устройство (devices)" as devices {
+  * device_id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  adapter_id : UUID <<FK>>
+  device_type_id : UUID <<FK>>
+  protocol_id : UUID <<FK>>
+  status_id : UUID <<FK>>
+  name : varchar
+  serial_number : varchar
+  protocol_config : jsonb
+  created_at : timestamp
+}
+
+entity "Статусы устройств (device_statuses)" as statuses {
+  * status_id : UUID <<PK>>
+  --
+  code : varchar
+  description : text
+  is_active : boolean
+}
+
+entity "Протоколы (protocols)" as protocols {
+  * protocol_id : UUID <<PK>>
+  --
+  code : varchar       -- ZIGBEE, BLE, REST, MQTT
+  description : text
+  supports_push : boolean
+}
+
+entity "Команда (commands)" as commands {
+  * command_id : UUID <<PK>>
+  --
+  device_id : UUID <<FK>>
+  user_id : UUID <<FK>>
+  command_type : varchar
+  payload : jsonb
+  status : varchar
+  created_at : timestamp
+  ack_time : timestamp
+  response : text
+}
+
+entity "Телеметрия (telemetry)" as telemetry {
+  * telemetry_id : bigint <<PK>>
+  --
+  device_id : UUID <<FK>>
+  timestamp : timestamp
+  metric_name : varchar
+  metric_value : double
+}
+
+' Связи
+users ||--o{ devices : "владеет"
+protocols ||--o{ adapters : "использует"
+protocols ||--o{ device_types : "использует"
+protocols ||--o{ devices : "использует"
+statuses ||--o{ devices : "имеет статус"
+adapters ||--o{ devices : "обслуживает"
+device_types ||--o{ devices : "типизирует"
+devices ||--o{ telemetry : "передает"
+devices ||--o{ commands : "принимает"
+users ||--o{ commands : "отправляет"
+
+@enduml

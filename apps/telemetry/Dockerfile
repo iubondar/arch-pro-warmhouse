@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o smarthome
+RUN CGO_ENABLED=0 GOOS=linux go build -o telemetry
 
 # Runtime stage
 FROM alpine:latest
@@ -26,10 +26,10 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /app
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/smarthome .
+COPY --from=builder /app/telemetry .
 
 # Expose the port the app runs on
-EXPOSE 8080
+EXPOSE 8082
 
 # Command to run the application
-CMD ["./smarthome"]
+CMD ["./telemetry"]

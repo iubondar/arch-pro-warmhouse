@@ -1,0 +1,48 @@
+@startuml Devices service component
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Диаграмма компонентов для системы Умный дом - Devices service
+
+Container(spa_BFF, "BFF for SPA", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+Container(mobile_BFF, "BFF for mobile", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+ContainerDb(devices_db, "Devices DB", "PostgreSQL", "Хранит данные об устройствах и их текущем состоянии")
+ContainerDb(devices_state_cache, "Devices state cache", "ValKey", "Кэш для текущего состояния устройств")
+ContainerDb(commands_log_db, "Commnands log DB", "Clickhouse", "Журнал команд устройств")
+ContainerQueue(databus, "Databus", "Kafka", "Шина данных")
+
+Container_Boundary(ds, "Devices service", "Go, Docker Container", "Сервис управления устройствами") {
+    Component(mgmt_handler, "Device management API handler", "Go handler", "Получает запросы на регистрацию, обновление и удаление устройств")
+    Component(current_state_handler, "Current state API handler", "Go handler", "Получает запросы на получение текущего состояния устройств")
+    Component(command_handler, "Command API handler", "Go handler", "Получает запросы на выполнение команд устройствами")
+    Component(device_mgmt, "Device management component", "Go", "Управляет процессом регистрации, обновления и удаления устройств")
+    Component(current_state, "Current state component", "Go", "Управляет процессом получения текущего состояния устройств")
+    Component(command, "Command component", "Go", "Управляет процессом выполнения команд устройствами")
+    Component(storage, "Storage component", "Go", "Управляет сохранением данных об устройствах и логами выполнения команд")
+
+    Rel(mgmt_handler, device_mgmt, "Uses")
+    Rel(current_state_handler, current_state, "Uses")
+    Rel(command_handler, command, "Uses")
+
+    Rel(device_mgmt, storage, "Обновляет и читает данные об устройствах", "sync")
+    Rel(current_state, storage, "Обновляет и читает текущее состояние устройства", "sync")
+
+    Rel(storage, devices_db, "Reads from and writes to", "sync")
+    Rel(storage, devices_state_cache, "Reads from and writes to", "sync")
+    Rel(storage, commands_log_db, "Reads from and writes to", "sync")
+
+    Rel(command, databus, "Публикует команды", "async")
+    Rel_Back(command, databus, "Читает ack", "async")
+    Rel(command, storage, "Добавляет команды для журналирования", "sync")
+    Rel_Back(current_state, databus, "Читает показатели для состояния устройств", "async")
+}
+
+Rel(spa_BFF, mgmt_handler, "Регистрация, обновление, удаление устройства", "HTTPS / REST")
+Rel(spa_BFF, current_state_handler, "Получение текущего состояния устройств", "HTTPS / REST polling")
+Rel(spa_BFF, command_handler, "Выполнение команд устройствами", "HTTPS / REST")
+Rel(mobile_BFF, mgmt_handler, "Регистрация, обновление, удаление устройства", "HTTPS / REST")
+Rel(mobile_BFF, current_state_handler, "Получение текущего состояния устройств", "HTTPS / REST polling")
+Rel(mobile_BFF, command_handler, "Выполнение команд устройствами", "HTTPS / REST")
+
+@enduml

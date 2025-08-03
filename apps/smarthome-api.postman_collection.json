@@ -189,6 +189,65 @@
                 "description": "Update a sensor's value and status"
             },
             "response": []
+        },
+        {
+            "name": "Get Latest Telemetry",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:8080/api/v1/telemetry/1/latest",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8080",
+                    "path": [
+                        "api",
+                        "v1",
+                        "telemetry",
+                        "1",
+                        "latest"
+                    ]
+                },
+                "description": "Get latest telemetry data for device"
+            },
+            "response": []
+        },
+
+        {
+            "name": "Get Telemetry History with Date Range",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:8080/api/v1/telemetry/2/history?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8080",
+                    "path": [
+                        "api",
+                        "v1",
+                        "telemetry",
+                        "2",
+                        "history"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "2025-01-01T00:00:00Z"
+                        },
+                        {
+                            "key": "to",
+                            "value": "2025-01-31T23:59:59Z"
+                        }
+                    ]
+                },
+                "description": "Get telemetry history for device with date range"
+            },
+            "response": []
         }
     ],
     "event": [

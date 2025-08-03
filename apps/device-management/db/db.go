@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"smarthome/models"
+	"device-management/models"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

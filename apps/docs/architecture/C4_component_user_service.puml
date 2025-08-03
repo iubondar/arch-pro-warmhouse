@@ -1,0 +1,30 @@
+@startuml Users service component
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+title Диаграмма компонентов для системы Умный дом - Users service
+
+Container(spa_BFF, "BFF for SPA", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+Container(mobile_BFF, "BFF for mobile", "Go, Docker Container", "Передаёт команды в сервисы, формирует ответ")
+ContainerDb(user_db, "Users DB", "PostgreSQL, Docker Container", "Хранение пользователей, аутентификация и авторизация")
+
+Container_Boundary(us, "User service", "Go, Docker Container", "Сервис управления пользователями") {
+    Component(sign, "Sign In handler", "Go handler", "Управляет процессом регистрации новых пользователей")
+    Component(login, "Login handler", "Go handler", "Управляет процессом входа пользователей в систему")
+    Component(security, "Security component", "Go", "Управляет процессом аутентификации пользователей, работой с JWT токенами")
+    Component(storage, "Storage component", "Go", "Управляет процессом хранения пользователей в базе данных")
+
+    Rel(sign, security, "Uses")
+    Rel(login, security, "Uses")
+    Rel(sign, storage, "Uses")
+    Rel(login, storage, "Uses")
+    Rel(storage, user_db, "Reads from and writes to", "sync")
+}
+
+Rel(spa_BFF, sign, "Регистрация", "HTTPS / REST")
+Rel(mobile_BFF, sign, "Регистрация", "HTTPS / REST")
+Rel(spa_BFF, login, "Вход", "HTTPS / REST")
+Rel(mobile_BFF, login, "Вход", "HTTPS / REST")
+
+@enduml

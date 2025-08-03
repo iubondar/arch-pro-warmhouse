@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o smarthome
+RUN CGO_ENABLED=0 GOOS=linux go build -o device-management
 
 # Runtime stage
 FROM alpine:latest
@@ -26,10 +26,10 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /app
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/smarthome .
+COPY --from=builder /app/device-management .
 
 # Expose the port the app runs on
-EXPOSE 8080
+EXPOSE 8083
 
 # Command to run the application
-CMD ["./smarthome"]
+CMD ["./device-management"]

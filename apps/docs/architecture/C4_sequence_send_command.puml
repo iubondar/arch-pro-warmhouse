@@ -1,0 +1,40 @@
+@startuml Microcervices C4 Sequence Send Command
+
+title Последовательность действий при отправке команды пользователем устройству
+
+actor Пользователь
+participant "SPA / Mobile App" as app
+participant "API Gateway" as api
+participant "BFF" as bff
+participant "Devices Service" as dev_svc
+database "Devices DB" as dev_db
+queue "Databus (Kafka)" as bus
+participant "Журнал команд (Clickhouse)" as cmd_log
+participant "Zigbee Adapter" as adapter_zb
+entity "Устройство Zigbee" as device_zb
+
+== Отправка команды ==
+Пользователь -> app : Отправить команду (например, "включить розетку")
+app -> api : POST /devices/{id}/commands (payload)
+api -> bff
+bff -> dev_svc : Проверка устройства, валидация команды
+dev_svc -> dev_db : SELECT устройство
+dev_db --> dev_svc : device info
+
+dev_svc -> cmd_log : INSERT запись команды (status=SENT)
+dev_svc -> bus : Публикация события "command_issued"
+
+== Доставка команды ==
+bus -> adapter_zb : Команда для устройства
+adapter_zb -> device_zb : Отправка Zigbee команды
+device_zb --> adapter_zb : Ответ (успех или ошибка)
+
+== Подтверждение (ACK) ==
+adapter_zb -> bus : Публикация "command_ack" (status=ACKED/ERROR)
+bus -> dev_svc : Получение результата
+dev_svc -> cmd_log : UPDATE status команды
+dev_svc -> bff : Ответ пользователю с итогом (успех/ошибка)
+bff -> api
+api -> app : JSON {status: "ACKED", timestamp: ...}
+
+@enduml
